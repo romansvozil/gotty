@@ -1,6 +1,9 @@
 package localcommand
 
 import (
+	"errors"
+	"fmt"
+	"github.com/google/uuid"
 	"syscall"
 	"time"
 
@@ -13,10 +16,12 @@ type Options struct {
 }
 
 type Factory struct {
-	command string
-	argv    []string
-	options *Options
-	opts    []Option
+	command          string
+	argv             []string
+	options          *Options
+	opts             []Option
+	runningProcesses map[string]server.Slave
+	readOnlyProcesses map[string]string
 }
 
 func NewFactory(command string, argv []string, options *Options) (*Factory, error) {
@@ -30,6 +35,8 @@ func NewFactory(command string, argv []string, options *Options) (*Factory, erro
 		argv:    argv,
 		options: options,
 		opts:    opts,
+		runningProcesses: make(map[string]server.Slave),
+		readOnlyProcesses: make(map[string]string),
 	}, nil
 }
 
@@ -37,12 +44,41 @@ func (factory *Factory) Name() string {
 	return "local command"
 }
 
-func (factory *Factory) New(params map[string][]string) (server.Slave, error) {
+func (factory *Factory) New(params map[string][]string, slaveId string) (server.Slave, error) {
+	if newSlaveId, ok := factory.readOnlyProcesses[slaveId]; ok {
+		slaveId = newSlaveId
+	}
+
+	if slave, ok := factory.runningProcesses[slaveId]; ok {
+		return slave, nil
+	}
+
 	argv := make([]string, len(factory.argv))
 	copy(argv, factory.argv)
 	if params["arg"] != nil && len(params["arg"]) > 0 {
 		argv = append(argv, params["arg"]...)
 	}
 
-	return New(factory.command, argv, factory.opts...)
+	slave, err := New(factory.command, argv, factory.opts...)
+	fmt.Printf("creating a new slave process\n")
+	if err == nil {
+		factory.runningProcesses[slaveId] = slave
+	}
+
+	return slave, err
+}
+
+func (factory *Factory) AddReadonly(slaveId string) (string, error) {
+	if alias, ok := factory.readOnlyProcesses[slaveId]; ok {
+		return alias, nil
+	}
+
+	if _, ok := factory.runningProcesses[slaveId]; ok {
+		newId := uuid.New().String()
+		factory.readOnlyProcesses[newId] = slaveId
+		return newId, nil
+	}
+
+	return "", errors.New("slaveId is not valid")
+
 }

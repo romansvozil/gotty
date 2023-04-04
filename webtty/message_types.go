@@ -15,6 +15,8 @@ const (
 	ResizeTerminal = '3'
 	// Change encoding
 	SetEncoding = '4'
+	// Close session by browser
+	CloseSession = '5'
 )
 
 const (
@@ -32,4 +34,6 @@ const (
 	SetReconnect = '5'
 	// Set the input buffer size
 	SetBufferSize = '6'
+	// Set the read-only session id
+	SetReadOnlySessionId = '7'
 )

@@ -11,12 +11,14 @@ import (
 	"net"
 	"net/http"
 	"regexp"
+	"strings"
 	noesctmpl "text/template"
 	"time"
 
 	"github.com/NYTimes/gziphandler"
 	"github.com/gorilla/websocket"
 	"github.com/pkg/errors"
+	"github.com/google/uuid"
 
 	"github.com/sorenisanerd/gotty/bindata"
 	"github.com/sorenisanerd/gotty/pkg/homedir"
@@ -27,6 +29,7 @@ import (
 // Server provides a webtty HTTP endpoint.
 type Server struct {
 	factory Factory
+	slaveToMasterMapping map[Slave]*webtty.CollectionWebTTY
 	options *Options
 
 	upgrader         *websocket.Upgrader
@@ -92,7 +95,39 @@ func New(factory Factory, options *Options) (*Server, error) {
 		indexTemplate:    indexTemplate,
 		titleTemplate:    titleTemplate,
 		manifestTemplate: manifestTemplate,
+		slaveToMasterMapping: make(map[Slave]*webtty.CollectionWebTTY),
 	}, nil
+}
+
+/*
+	Returns whether there was made a new collection
+ */
+func (server* Server) AddMaster(slave Slave, master *webtty.WebTTY) bool {
+	var collection *webtty.CollectionWebTTY
+	isNew := false
+	if value, ok := server.slaveToMasterMapping[slave]; ok {
+		collection = value
+	} else {
+		collection = &webtty.CollectionWebTTY {}
+		server.slaveToMasterMapping[slave] = collection
+		isNew = true
+	}
+	collection.Push(master)
+	return isNew
+}
+
+func (server* Server) GetMasters(slave Slave) *webtty.CollectionWebTTY {
+	if value, ok := server.slaveToMasterMapping[slave]; ok {
+		return value
+	}
+	return nil
+}
+
+func (server* Server) RemoveMaster(slave Slave, master *webtty.WebTTY) {
+	if value, ok := server.slaveToMasterMapping[slave]; ok {
+		collection := value
+		collection.Remove(master)
+	}
 }
 
 // Run starts the main process of the Server.
@@ -200,7 +235,22 @@ func (server *Server) setupHandlers(ctx context.Context, cancel context.CancelFu
 	staticFileHandler := http.FileServer(http.FS(fs))
 
 	var siteMux = http.NewServeMux()
-	siteMux.HandleFunc(pathPrefix, server.handleIndex)
+
+	var sessionHandler = NewSessionHandler(server, ctx, cancel, counter)
+
+	siteMux.HandleFunc(pathPrefix, func (w http.ResponseWriter, r *http.Request) {
+		http.Redirect(w, r, pathPrefix + "session/" + uuid.New().String(), http.StatusFound)
+	})
+	siteMux.HandleFunc(pathPrefix+"session/create-readonly/", func(w http.ResponseWriter, r *http.Request) {
+		 id := strings.TrimPrefix(r.URL.String(), pathPrefix+"session/create-readonly/")
+		 newId, err := server.factory.AddReadonly(id)
+		 if err != nil {
+		 	// todo
+		 } else {
+			 http.Redirect(w, r, pathPrefix + "session/readonly/" + newId,  http.StatusSeeOther)
+		 }
+	})
+	siteMux.Handle(pathPrefix+"session/", http.StripPrefix(pathPrefix+"session/", sessionHandler))
 	siteMux.Handle(pathPrefix+"js/", http.StripPrefix(pathPrefix, staticFileHandler))
 	siteMux.Handle(pathPrefix+"favicon.ico", http.StripPrefix(pathPrefix, staticFileHandler))
 	siteMux.Handle(pathPrefix+"icon.svg", http.StripPrefix(pathPrefix, staticFileHandler))
@@ -223,7 +273,7 @@ func (server *Server) setupHandlers(ctx context.Context, cancel context.CancelFu
 
 	wsMux := http.NewServeMux()
 	wsMux.Handle("/", siteHandler)
-	wsMux.HandleFunc(pathPrefix+"ws", server.generateHandleWS(ctx, cancel, counter))
+	//wsMux.HandleFunc(pathPrefix+"ws", server.generateHandleWS(ctx, cancel, counter))
 	siteHandler = http.Handler(wsMux)
 
 	return siteHandler

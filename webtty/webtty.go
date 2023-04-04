@@ -30,6 +30,10 @@ type WebTTY struct {
 	writeMutex sync.Mutex
 }
 
+func (tty *WebTTY) GetBufferSize() int {
+	return tty.bufferSize
+}
+
 // New creates a new instance of WebTTY.
 // masterConn is a connection to the PTY master,
 // typically it's a websocket connection to a client.
@@ -65,25 +69,13 @@ func (wt *WebTTY) Run(ctx context.Context) error {
 	if err != nil {
 		return errors.Wrapf(err, "failed to send initializing message")
 	}
-
 	errs := make(chan error, 2)
 
-	go func() {
-		errs <- func() error {
-			buffer := make([]byte, wt.bufferSize)
-			for {
-				n, err := wt.slave.Read(buffer)
-				if err != nil {
-					return ErrSlaveClosed
-				}
+	err = wt.HandleSlaveReadEvent(wt.slave.GetHistory())
 
-				err = wt.handleSlaveReadEvent(buffer[:n])
-				if err != nil {
-					return err
-				}
-			}
-		}()
-	}()
+	if err != nil {
+		return err
+	}
 
 	go func() {
 		errs <- func() error {
@@ -141,7 +133,7 @@ func (wt *WebTTY) sendInitializeMessage() error {
 	return nil
 }
 
-func (wt *WebTTY) handleSlaveReadEvent(data []byte) error {
+func (wt *WebTTY) HandleSlaveReadEvent(data []byte) error {
 	safeMessage := base64.StdEncoding.EncodeToString(data)
 	err := wt.masterWrite(append([]byte{Output}, []byte(safeMessage)...))
 	if err != nil {
@@ -184,6 +176,7 @@ func (wt *WebTTY) handleMasterReadEvent(data []byte) error {
 			return errors.Wrapf(err, "failed to decode received data")
 		}
 
+		//wt.slave.PushToHistory(decodedBuffer[:n])
 		_, err = wt.slave.Write(decodedBuffer[:n])
 		if err != nil {
 			return errors.Wrapf(err, "failed to write received data to slave")
@@ -228,6 +221,10 @@ func (wt *WebTTY) handleMasterReadEvent(data []byte) error {
 		}
 
 		wt.slave.ResizeTerminal(columns, rows)
+
+	case CloseSession:
+		return errors.New("session closed by a browser")
+
 	default:
 		return errors.Errorf("unknown message type `%c`", data[0])
 	}

@@ -1,6 +1,7 @@
 import { OurXterm } from "./xterm";
 import { Terminal, WebTTY, protocols } from "./webtty";
 import { ConnectionFactory } from "./websocket";
+import {renderMenu} from "./Menu";
 
 // @TODO remove these
 declare var gotty_auth_token: string;
@@ -13,11 +14,13 @@ if (elem !== null) {
     term = new OurXterm(elem);
 
     const httpsEnabled = window.location.protocol == "https:";
-    const url = (httpsEnabled ? 'wss://' : 'ws://') + window.location.host + window.location.pathname + 'ws';
+    const url = (httpsEnabled ? 'wss://' : 'ws://') + window.location.host + window.location.pathname + '/ws';
     const args = window.location.search;
     const factory = new ConnectionFactory(url, protocols);
     const wt = new WebTTY(term, factory, args, gotty_auth_token);
     const closer = wt.open();
+
+    renderMenu(wt);
 
     // According to https://developer.mozilla.org/en-US/docs/Web/API/Window/unload_event
     // this event is unreliable and in some cases (Firefox is mentioned), having an

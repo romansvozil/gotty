@@ -5,6 +5,7 @@ export const msgInput = '1';
 export const msgPing = '2';
 export const msgResizeTerminal = '3';
 export const msgSetEncoding = '4';
+export const closeSession = '5';
 
 export const msgUnknownOutput = '0';
 export const msgOutput = '1';
@@ -13,6 +14,7 @@ export const msgSetWindowTitle = '3';
 export const msgSetPreferences = '4';
 export const msgSetReconnect = '5';
 export const msgSetBufferSize = '6';
+export const msgSetReadOnlySessionId = '7';
 
 
 export interface Terminal {

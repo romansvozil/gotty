@@ -11,3 +11,45 @@ html, body, #terminal {
   transition-duration: 0.1s;
   transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
 }
+
+.menu {
+    top: 0.5rem;
+    position: absolute;
+    z-index: 10;
+    right: 0;
+    overflow: hidden;
+    width: 20rem
+}
+
+.menu .card:hover .card-arrow {
+    display: none;
+}
+
+.card-arrow {
+    display: flex;
+    align-items: center;
+    align-content: center;
+}
+
+.menu .card {
+    border-radius: 0.5rem;
+    width: 20rem;
+    padding: 1rem;
+    left: 18rem;
+    transition: all 0.2s;
+    position: relative;
+    background-color: darkgray;
+    display: flex;
+    justify-content: space-between;
+    gap: 0.5rem;
+    padding-left: 0.7rem;
+}
+
+.menu .card:hover {
+    padding-left: 1rem;
+    left: 0 !important;
+}
+
+.xterm .xterm-viewport {
+    overflow-y: auto !important;
+}

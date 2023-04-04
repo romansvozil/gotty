@@ -8,6 +8,7 @@ import (
 	"log"
 	"net/http"
 	"net/url"
+	"strings"
 	"sync/atomic"
 
 	"github.com/gorilla/websocket"
@@ -72,7 +73,13 @@ func (server *Server) generateHandleWS(ctx context.Context, cancel context.Cance
 		}
 		defer conn.Close()
 
-		err = server.processWSConn(ctx, conn)
+		isSessionReadOnly := strings.Contains(r.URL.String(), "readonly")
+
+		index := 0
+		if isSessionReadOnly {
+			index = 1
+		}
+		err = server.processWSConn(ctx, conn, strings.Split(r.URL.String(), "/")[index], isSessionReadOnly)
 
 		switch err {
 		case ctx.Err():
@@ -87,7 +94,7 @@ func (server *Server) generateHandleWS(ctx context.Context, cancel context.Cance
 	}
 }
 
-func (server *Server) processWSConn(ctx context.Context, conn *websocket.Conn) error {
+func (server *Server) processWSConn(ctx context.Context, conn *websocket.Conn, slaveId string, isReadOnlySession bool) error {
 	typ, initLine, err := conn.ReadMessage()
 	if err != nil {
 		return errors.Wrapf(err, "failed to authenticate websocket connection")
@@ -116,11 +123,11 @@ func (server *Server) processWSConn(ctx context.Context, conn *websocket.Conn) e
 	}
 	params := query.Query()
 	var slave Slave
-	slave, err = server.factory.New(params)
+	slave, err = server.factory.New(params, slaveId)
 	if err != nil {
 		return errors.Wrapf(err, "failed to create backend")
 	}
-	defer slave.Close()
+	//defer slave.Close()
 
 	titleVars := server.titleVariables(
 		[]string{"server", "master", "slave"},
@@ -142,7 +149,7 @@ func (server *Server) processWSConn(ctx context.Context, conn *websocket.Conn) e
 	opts := []webtty.Option{
 		webtty.WithWindowTitle(titleBuf.Bytes()),
 	}
-	if server.options.PermitWrite {
+	if server.options.PermitWrite && !isReadOnlySession {
 		opts = append(opts, webtty.WithPermitWrite())
 	}
 	if server.options.EnableReconnect {
@@ -159,12 +166,30 @@ func (server *Server) processWSConn(ctx context.Context, conn *websocket.Conn) e
 		return errors.Wrapf(err, "failed to create webtty")
 	}
 
+	if server.AddMaster(slave, tty) {
+		fmt.Printf("Running a new reader! slave: {%p}\n", &slave)
+		go func() {
+			buffer := make([]byte, 1024)
+
+			for {
+				n, err := slave.Read(buffer)
+				if err != nil {
+					return
+				}
+				slave.PushToHistory(buffer[:n])
+				server.GetMasters(slave).ForEach(func (tty *webtty.WebTTY) {
+					_ = tty.HandleSlaveReadEvent(buffer[:n])
+				})
+			}
+		}()
+	}
 	err = tty.Run(ctx)
+	server.RemoveMaster(slave, tty)
 
 	return err
 }
 
-func (server *Server) handleIndex(w http.ResponseWriter, r *http.Request) {
+func (server *Server) handleNewSession(w http.ResponseWriter, r *http.Request) {
 	indexVars, err := server.indexVariables(r)
 	if err != nil {
 		http.Error(w, "Internal Server Error", 500)

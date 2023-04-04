@@ -1,6 +1,7 @@
 package localcommand
 
 import (
+	"io"
 	"os"
 	"os/exec"
 	"syscall"
@@ -22,9 +23,11 @@ type LocalCommand struct {
 	closeSignal  syscall.Signal
 	closeTimeout time.Duration
 
-	cmd       *exec.Cmd
-	pty       *os.File
-	ptyClosed chan struct{}
+	cmd               *exec.Cmd
+	pty               *os.File
+	ptyClosed         chan struct{}
+	history           []byte
+	hasPublicReadOnly bool
 }
 
 func New(command string, argv []string, options ...Option) (*LocalCommand, error) {
@@ -49,6 +52,9 @@ func New(command string, argv []string, options ...Option) (*LocalCommand, error
 		cmd:       cmd,
 		pty:       pty,
 		ptyClosed: ptyClosed,
+
+		history:           make([]byte, 0),
+		hasPublicReadOnly: true,
 	}
 
 	for _, option := range options {
@@ -62,7 +68,6 @@ func New(command string, argv []string, options ...Option) (*LocalCommand, error
 			lcmd.pty.Close()
 			close(lcmd.ptyClosed)
 		}()
-
 		lcmd.cmd.Wait()
 	}()
 
@@ -73,8 +78,30 @@ func (lcmd *LocalCommand) Read(p []byte) (n int, err error) {
 	return lcmd.pty.Read(p)
 }
 
+func (lcmd *LocalCommand) Seek(offset int64) (oldPosition int64, err error) {
+	//position, err := lcmd.pty.Seek(0, io.SeekCurrent)
+	_, err = lcmd.pty.Seek(offset, io.SeekStart)
+	return 0, err
+}
+
+func (lcmd *LocalCommand) PushToHistory(b []byte) {
+	lcmd.history = append(lcmd.history, b...)
+}
+
+func (lcmd *LocalCommand) GetHistory() []byte {
+	return lcmd.history
+}
+
 func (lcmd *LocalCommand) Write(p []byte) (n int, err error) {
 	return lcmd.pty.Write(p)
+}
+
+func (lcmd *LocalCommand) HasPublicReadOnly() bool {
+	return lcmd.hasPublicReadOnly
+}
+
+func (lcmd *LocalCommand) SetHasPublicReadOnly(hasPublicReadOnly bool) {
+	lcmd.hasPublicReadOnly = hasPublicReadOnly
 }
 
 func (lcmd *LocalCommand) Close() error {

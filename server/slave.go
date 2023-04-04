@@ -9,9 +9,12 @@ type Slave interface {
 	webtty.Slave
 
 	Close() error
+	HasPublicReadOnly() bool
+	SetHasPublicReadOnly(hasPublicReadOnly bool)
 }
 
 type Factory interface {
 	Name() string
-	New(params map[string][]string) (Slave, error)
+	New(params map[string][]string, slaveId string) (Slave, error)
+	AddReadonly(slaveId string) (string, error)
 }

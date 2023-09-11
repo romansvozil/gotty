@@ -71,7 +71,7 @@ func (wt *WebTTY) Run(ctx context.Context) error {
 	}
 	errs := make(chan error, 2)
 
-	err = wt.HandleSlaveReadEvent(wt.slave.GetHistory())
+	err = wt.HandleSlaveIntializeHistoryEvent(wt.slave.GetHistory())
 
 	if err != nil {
 		return err
@@ -136,6 +136,29 @@ func (wt *WebTTY) sendInitializeMessage() error {
 func (wt *WebTTY) HandleSlaveReadEvent(data []byte) error {
 	safeMessage := base64.StdEncoding.EncodeToString(data)
 	err := wt.masterWrite(append([]byte{Output}, []byte(safeMessage)...))
+	if err != nil {
+		return errors.Wrapf(err, "failed to send message to master")
+	}
+
+	return nil
+}
+
+func (wt *WebTTY) HandleSlaveIntializeHistoryEvent(data []byte) error {
+//	for _, row := range data {
+//		safeMessage := base64.StdEncoding.EncodeToString(row)
+//		err := wt.masterWrite(append([]byte{Output}, []byte(safeMessage)...))
+//		if err != nil {
+//			return errors.Wrapf(err, "failed to send message to master")
+//		}
+//	}
+//
+//	err := wt.masterWrite([]byte{IntitializeHistory})
+//	if err != nil {
+//		return errors.Wrapf(err, "failed to send message to master")
+//	}
+
+	safeMessage := base64.StdEncoding.EncodeToString(data)
+	err := wt.masterWrite(append([]byte{IntitializeHistory}, []byte(safeMessage)...))
 	if err != nil {
 		return errors.Wrapf(err, "failed to send message to master")
 	}

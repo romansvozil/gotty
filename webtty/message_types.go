@@ -36,4 +36,5 @@ const (
 	SetBufferSize = '6'
 	// Set the read-only session id
 	SetReadOnlySessionId = '7'
+	IntitializeHistory = '8'
 )

@@ -86,6 +86,16 @@ func (lcmd *LocalCommand) Seek(offset int64) (oldPosition int64, err error) {
 
 func (lcmd *LocalCommand) PushToHistory(b []byte) {
 	lcmd.history = append(lcmd.history, b...)
+	counter := 0
+	for index := range lcmd.history {
+		if lcmd.history[len(lcmd.history) - index - 1] == '\n' {
+			counter += 1
+			if counter > 100 {
+				lcmd.history = lcmd.history[index + 1:]
+				return
+			}
+		}
+	}
 }
 
 func (lcmd *LocalCommand) GetHistory() []byte {

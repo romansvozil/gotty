@@ -15,6 +15,7 @@ export const msgSetPreferences = '4';
 export const msgSetReconnect = '5';
 export const msgSetBufferSize = '6';
 export const msgSetReadOnlySessionId = '7';
+export const msgHistoryInitialization = '8';
 
 
 export interface Terminal {
@@ -128,6 +129,8 @@ export class WebTTY {
      */
     bufSize: number;
 
+    historyBeenInitialized: boolean;
+
     constructor(term: Terminal, connectionFactory: ConnectionFactory, args: string, authToken: string) {
         this.term = term;
         this.connectionFactory = connectionFactory;
@@ -135,6 +138,7 @@ export class WebTTY {
         this.authToken = authToken;
         this.reconnect = -1;
         this.bufSize = 1024;
+        this.historyBeenInitialized = false;
     };
 
     open() {
@@ -172,6 +176,7 @@ export class WebTTY {
                 const payload = data.slice(1);
                 switch (data[0]) {
                     case msgOutput:
+                        console.log("msgOutput:",atob(payload))
                         this.term.output(Uint8Array.from(atob(payload), c => c.charCodeAt(0)));
                         break;
                     case msgPong:
@@ -191,6 +196,18 @@ export class WebTTY {
                     case msgSetBufferSize:
                         const bufSize = JSON.parse(payload);
                         this.bufSize = bufSize;
+                        break;
+                    case msgHistoryInitialization:
+                        try {
+                            this.term.output(Uint8Array.from(atob(payload), c => c.charCodeAt(0)));
+                        } catch (e) {
+                            console.error(`couldn't initialize terminal history properly: ${e}`)
+                        } finally {
+                            setTimeout(() => {
+                                this.historyBeenInitialized = true;
+                                }, 100);
+                        }
+
                         break;
                 }
             });
@@ -232,6 +249,12 @@ export class WebTTY {
      * strings will be encoded as UTF-8. Uint8Arrays are passed along as-is.
      */
     private sendInput(input: string | Uint8Array) {
+        console.log("sending data:", input)
+        if (!this.historyBeenInitialized) {
+            console.warn(`history hasn't been initialized yet, input sent by xterm has been ignored: ${input}`)
+            return;
+        }
+
         let effectiveBufferSize = this.bufSize - 1;
         let dataString: string;
 

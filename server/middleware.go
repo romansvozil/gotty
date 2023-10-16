@@ -5,6 +5,8 @@ import (
 	"log"
 	"net/http"
 	"strings"
+
+	"golang.org/x/exp/slices"
 )
 
 func (server *Server) wrapLogger(handler http.Handler) http.Handler {
@@ -39,7 +41,9 @@ func (server *Server) wrapBasicAuth(handler http.Handler, credential string) htt
 			return
 		}
 
-		if credential != string(payload) {
+		possibleCredentials := strings.Split(credential, ";")
+
+		if !slices.Contains(possibleCredentials, string(payload)) {
 			w.Header().Set("WWW-Authenticate", `Basic realm="GoTTY"`)
 			http.Error(w, "authorization failed", http.StatusUnauthorized)
 			return

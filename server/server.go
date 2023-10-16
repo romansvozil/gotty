@@ -16,9 +16,9 @@ import (
 	"time"
 
 	"github.com/NYTimes/gziphandler"
+	"github.com/google/uuid"
 	"github.com/gorilla/websocket"
 	"github.com/pkg/errors"
-	"github.com/google/uuid"
 
 	"github.com/sorenisanerd/gotty/bindata"
 	"github.com/sorenisanerd/gotty/pkg/homedir"
@@ -28,9 +28,9 @@ import (
 
 // Server provides a webtty HTTP endpoint.
 type Server struct {
-	factory Factory
+	factory              Factory
 	slaveToMasterMapping map[Slave]*webtty.CollectionWebTTY
-	options *Options
+	options              *Options
 
 	upgrader         *websocket.Upgrader
 	indexTemplate    *template.Template
@@ -92,23 +92,23 @@ func New(factory Factory, options *Options) (*Server, error) {
 			Subprotocols:    webtty.Protocols,
 			CheckOrigin:     originChekcer,
 		},
-		indexTemplate:    indexTemplate,
-		titleTemplate:    titleTemplate,
-		manifestTemplate: manifestTemplate,
+		indexTemplate:        indexTemplate,
+		titleTemplate:        titleTemplate,
+		manifestTemplate:     manifestTemplate,
 		slaveToMasterMapping: make(map[Slave]*webtty.CollectionWebTTY),
 	}, nil
 }
 
 /*
-	Returns whether there was made a new collection
- */
-func (server* Server) AddMaster(slave Slave, master *webtty.WebTTY) bool {
+Returns whether there was made a new collection
+*/
+func (server *Server) AddMaster(slave Slave, master *webtty.WebTTY) bool {
 	var collection *webtty.CollectionWebTTY
 	isNew := false
 	if value, ok := server.slaveToMasterMapping[slave]; ok {
 		collection = value
 	} else {
-		collection = &webtty.CollectionWebTTY {}
+		collection = &webtty.CollectionWebTTY{}
 		server.slaveToMasterMapping[slave] = collection
 		isNew = true
 	}
@@ -116,14 +116,14 @@ func (server* Server) AddMaster(slave Slave, master *webtty.WebTTY) bool {
 	return isNew
 }
 
-func (server* Server) GetMasters(slave Slave) *webtty.CollectionWebTTY {
+func (server *Server) GetMasters(slave Slave) *webtty.CollectionWebTTY {
 	if value, ok := server.slaveToMasterMapping[slave]; ok {
 		return value
 	}
 	return nil
 }
 
-func (server* Server) RemoveMaster(slave Slave, master *webtty.WebTTY) {
+func (server *Server) RemoveMaster(slave Slave, master *webtty.WebTTY) {
 	if value, ok := server.slaveToMasterMapping[slave]; ok {
 		collection := value
 		collection.Remove(master)
@@ -238,17 +238,17 @@ func (server *Server) setupHandlers(ctx context.Context, cancel context.CancelFu
 
 	var sessionHandler = NewSessionHandler(server, ctx, cancel, counter)
 
-	siteMux.HandleFunc(pathPrefix, func (w http.ResponseWriter, r *http.Request) {
-		http.Redirect(w, r, pathPrefix + "session/" + uuid.New().String(), http.StatusFound)
+	siteMux.HandleFunc(pathPrefix, func(w http.ResponseWriter, r *http.Request) {
+		http.Redirect(w, r, pathPrefix+"session/"+uuid.New().String(), http.StatusFound)
 	})
 	siteMux.HandleFunc(pathPrefix+"session/create-readonly/", func(w http.ResponseWriter, r *http.Request) {
-		 id := strings.TrimPrefix(r.URL.String(), pathPrefix+"session/create-readonly/")
-		 newId, err := server.factory.AddReadonly(id)
-		 if err != nil {
-		 	// todo
-		 } else {
-			 http.Redirect(w, r, pathPrefix + "session/readonly/" + newId,  http.StatusSeeOther)
-		 }
+		id := strings.TrimPrefix(r.URL.String(), pathPrefix+"session/create-readonly/")
+		newId, err := server.factory.AddReadonly(id)
+		if err != nil {
+			// todo
+		} else {
+			http.Redirect(w, r, pathPrefix+"session/readonly/"+newId, http.StatusSeeOther)
+		}
 	})
 	siteMux.Handle(pathPrefix+"session/", http.StripPrefix(pathPrefix+"session/", sessionHandler))
 	siteMux.Handle(pathPrefix+"js/", http.StripPrefix(pathPrefix, staticFileHandler))

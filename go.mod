@@ -1,6 +1,6 @@
 module github.com/sorenisanerd/gotty
 
-go 1.16
+go 1.20
 
 require (
 	github.com/NYTimes/gziphandler v1.1.1
@@ -8,9 +8,17 @@ require (
 	github.com/fatih/structs v1.1.0
 	github.com/google/uuid v1.3.0
 	github.com/gorilla/websocket v1.4.2
-	github.com/hashicorp/go-multierror v1.1.1 // indirect
 	github.com/pkg/errors v0.9.1
 	github.com/urfave/cli/v2 v2.3.0
 	github.com/yudai/hcl v0.0.0-20151013225006-5fa2393b3552
-	golang.org/x/sys v0.0.0-20210415045647-66c3f260301c // indirect
+	golang.org/x/exp v0.0.0-20231006140011-7918f672742d
+)
+
+require (
+	github.com/cpuguy83/go-md2man/v2 v2.0.0-20190314233015-f79a8a8ca69d // indirect
+	github.com/hashicorp/errwrap v1.0.0 // indirect
+	github.com/hashicorp/go-multierror v1.1.1 // indirect
+	github.com/russross/blackfriday/v2 v2.0.1 // indirect
+	github.com/shurcooL/sanitized_anchor_name v1.0.0 // indirect
+	golang.org/x/sys v0.13.0 // indirect
 )

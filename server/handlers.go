@@ -3,6 +3,7 @@ package server
 import (
 	"bytes"
 	"context"
+	"crypto/sha256"
 	"encoding/json"
 	"fmt"
 	"log"
@@ -108,7 +109,12 @@ func (server *Server) processWSConn(ctx context.Context, conn *websocket.Conn, s
 	if err != nil {
 		return errors.Wrapf(err, "failed to authenticate websocket connection")
 	}
-	if init.AuthToken != server.options.Credential {
+
+	hasher := sha256.New()
+	hasher.Write([]byte(server.options.Credential))
+	hashedCredentials := fmt.Sprintf("%x", hasher.Sum(nil))
+
+	if init.AuthToken != hashedCredentials {
 		return errors.New("failed to authenticate websocket connection")
 	}
 
@@ -177,7 +183,7 @@ func (server *Server) processWSConn(ctx context.Context, conn *websocket.Conn, s
 					return
 				}
 				slave.PushToHistory(buffer[:n])
-				server.GetMasters(slave).ForEach(func (tty *webtty.WebTTY) {
+				server.GetMasters(slave).ForEach(func(tty *webtty.WebTTY) {
 					_ = tty.HandleSlaveReadEvent(buffer[:n])
 				})
 			}
@@ -248,8 +254,12 @@ func (server *Server) indexVariables(r *http.Request) (map[string]interface{}, e
 
 func (server *Server) handleAuthToken(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/javascript")
-	// @TODO hashing?
-	w.Write([]byte("var gotty_auth_token = '" + server.options.Credential + "';"))
+
+	hasher := sha256.New()
+	hasher.Write([]byte(server.options.Credential))
+	hashedCredentials := fmt.Sprintf("%x", hasher.Sum(nil))
+
+	w.Write([]byte("var gotty_auth_token = '" + hashedCredentials + "';"))
 }
 
 func (server *Server) handleConfig(w http.ResponseWriter, r *http.Request) {
